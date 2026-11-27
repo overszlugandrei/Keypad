@@ -1,0 +1,316 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Keypad Lock</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: one centered lock panel; four code slots above a 3x4 keypad. */
+:root {
+  --bg: #eef1f5;
+  --panel: #ffffff;
+  --fg: #151a23;
+  --muted: #667085;
+  --line: #d9dee7;
+  --key: #f3f5f9;
+  --key-hover: #e7ebf2;
+  --accent: #0f766e;
+  --accent-ink: #ffffff;
+  --error: #c2410c;
+  --ok: #15803d;
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1117;
+    --panel: #171b24;
+    --fg: #eef1f6;
+    --muted: #98a2b3;
+    --line: #2a3140;
+    --key: #1f2531;
+    --key-hover: #2a3140;
+    --accent: #2dd4bf;
+    --accent-ink: #062b27;
+    --error: #fb923c;
+    --ok: #4ade80;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1117;
+  --panel: #171b24;
+  --fg: #eef1f6;
+  --muted: #98a2b3;
+  --line: #2a3140;
+  --key: #1f2531;
+  --key-hover: #2a3140;
+  --accent: #2dd4bf;
+  --accent-ink: #062b27;
+  --error: #fb923c;
+  --ok: #4ade80;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 16px;
+  padding-block: 24px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid;
+  place-items: center;
+}
+
+.lock {
+  width: 100%;
+  max-width: 360px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 32px 24px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  box-shadow: 0 12px 40px -16px rgba(15, 23, 42, 0.25);
+}
+
+.head { text-align: center; display: flex; flex-direction: column; gap: 6px; }
+h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.5rem;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.slots { display: flex; gap: 12px; }
+.slot {
+  width: 56px;
+  height: 68px;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  background: var(--key);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 600;
+  transition: border-color 0.15s, background 0.15s;
+}
+.slot.active { border-color: var(--accent); }
+.slot.filled::after { content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--fg); }
+.slots.error .slot { border-color: var(--error); }
+.slots.ok .slot { border-color: var(--ok); }
+.slots.ok .slot::after { background: var(--ok); }
+.slots.error { animation: shake 0.4s; }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-8px); }
+  40%, 80% { transform: translateX(8px); }
+}
+
+.status { min-height: 1.4em; margin: 0; font-size: 0.95rem; font-weight: 500; color: var(--muted); text-align: center; }
+.status.error { color: var(--error); }
+.status.ok { color: var(--ok); }
+
+.pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; }
+.pad button {
+  height: 60px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--key);
+  color: var(--fg);
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, transform 0.08s;
+}
+.pad button:hover { background: var(--key-hover); }
+.pad button:active { transform: scale(0.96); }
+.pad button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pad button.util { font-family: var(--font-body); font-size: 0.85rem; color: var(--muted); font-weight: 500; }
+.pad button:disabled { opacity: 0.45; cursor: default; transform: none; }
+
+.reveal {
+  margin: 0;
+  max-width: 100%;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.reveal a { color: var(--accent); }
+
+@media (max-width: 380px) {
+  .slot { width: 48px; height: 60px; }
+  .slots { gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .slots.error { animation: none; }
+  .pad button, .slot { transition: none; }
+}
+</style>
+
+<main class="lock">
+  <div class="head">
+    <h1>Enter code</h1>
+  </div>
+
+  <div class="slots" id="slots" aria-hidden="true">
+    <div class="slot"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div>
+  </div>
+
+  <p class="status" id="status" role="status" aria-live="polite">0 of 4 digits entered</p>
+
+  <div class="pad" id="pad">
+    <button type="button" data-key="1">1</button>
+    <button type="button" data-key="2">2</button>
+    <button type="button" data-key="3">3</button>
+    <button type="button" data-key="4">4</button>
+    <button type="button" data-key="5">5</button>
+    <button type="button" data-key="6">6</button>
+    <button type="button" data-key="7">7</button>
+    <button type="button" data-key="8">8</button>
+    <button type="button" data-key="9">9</button>
+    <button type="button" class="util" data-action="clear" aria-label="Clear all digits">Clear</button>
+    <button type="button" data-key="0">0</button>
+    <button type="button" class="util" data-action="back" aria-label="Delete last digit">Delete</button>
+  </div>
+
+</main>
+
+<p class="reveal" id="reveal" hidden></p>
+
+<script>
+(function () {
+  var BLOB = {"s":[249,40,23,36,232,168,237,188,184,224,89,29,156,110,228,37],"d":[165,203,40,108,64,18,121,242,1,13,227,44,61,247,51,113,157,5,198,205,213,221,99,229,199,132,84,174,79,232,83,164,80,197,116,203,115,101,200,255,139,10,250,198,132,112],"t":[0,227,75,135,252,240,35,205]};
+  var LEN = 4;
+
+  function sha256(m){var K=[],H=[],i,j,p=0;function f(n){return(n-Math.floor(n))*4294967296|0}
+  for(i=2;K.length<64;i++){for(j=2;j*j<=i&&i%j;j++);if(j*j>i){if(H.length<8)H.push(f(Math.pow(i,.5)));K.push(f(Math.cbrt(i)))}}
+  var l=m.length,w=new Array(((l+8>>6)+1)*16).fill(0);for(i=0;i<l;i++)w[i>>2]|=m[i]<<(24-8*(i&3));w[l>>2]|=128<<(24-8*(l&3));w[w.length-1]=l*8;
+  for(var o=0;o<w.length;o+=16){var x=w.slice(o,o+16),h=H.slice(),a;for(i=16;i<64;i++){var s0=(x[i-15]>>>7|x[i-15]<<25)^(x[i-15]>>>18|x[i-15]<<14)^(x[i-15]>>>3),s1=(x[i-2]>>>17|x[i-2]<<15)^(x[i-2]>>>19|x[i-2]<<13)^(x[i-2]>>>10);x[i]=x[i-16]+s0+x[i-7]+s1|0}
+  for(i=0;i<64;i++){var S1=(h[4]>>>6|h[4]<<26)^(h[4]>>>11|h[4]<<21)^(h[4]>>>25|h[4]<<7),ch=h[4]&h[5]^~h[4]&h[6],t1=h[7]+S1+ch+K[i]+x[i]|0,S0=(h[0]>>>2|h[0]<<30)^(h[0]>>>13|h[0]<<19)^(h[0]>>>22|h[0]<<10),mj=h[0]&h[1]^h[0]&h[2]^h[1]&h[2],t2=S0+mj|0;h=[t1+t2|0,h[0],h[1],h[2],h[3]+t1|0,h[4],h[5],h[6]]}
+  for(i=0;i<8;i++)H[i]=H[i]+h[i]|0}
+  var out=[];for(i=0;i<32;i++)out.push(H[i>>2]>>>(24-8*(i&3))&255);return out}
+  function cat(){return [].concat.apply([],arguments)}
+  function bytes(s){return Array.from(unescape(encodeURIComponent(s)),function(c){return c.charCodeAt(0)})}
+  function derive(code,salt){var k=cat(salt,bytes(code));for(var i=0;i<20000;i++)k=sha256(k);return k}
+  function stream(key,n){var o=[];for(var c=0;o.length<n;c++)o=o.concat(sha256(cat(key,[c])));return o.slice(0,n)}
+  function tagOf(key,pt){return sha256(cat(key,[255],pt)).slice(0,8)}
+  function dec(code,B){var salt=B.s,key=derive(code,salt),ct=B.d,ks=stream(key,ct.length),pt=ct.map(function(v,i){return v^ks[i]}),t=tagOf(key,pt);
+  for(var i=0;i<8;i++)if(t[i]!==B.t[i])return null;return decodeURIComponent(escape(String.fromCharCode.apply(null,pt)))}
+  function enc(code,text){var salt=[];for(var i=0;i<16;i++)salt.push(Math.floor(Math.random()*256));var key=derive(code,salt),pt=bytes(text),ks=stream(key,pt.length);
+  return{s:salt,d:pt.map(function(v,i){return v^ks[i]}),t:tagOf(key,pt)}}
+  
+  function unlock(code) {
+    var r = dec(code, BLOB);
+    if (r === null) throw new Error("bad");
+    return r;
+  }
+
+  var value = "";
+  var locked = false;
+
+  var slotsEl = document.getElementById("slots");
+  var slots = slotsEl.querySelectorAll(".slot");
+  var statusEl = document.getElementById("status");
+  var lockEl = document.querySelector(".lock");
+  var reveal = document.getElementById("reveal");
+  var buttons = document.querySelectorAll("#pad button");
+  var heading = document.querySelector("h1");
+
+  function render() {
+    for (var i = 0; i < LEN; i++) {
+      slots[i].classList.toggle("filled", i < value.length);
+      slots[i].classList.toggle("active", !locked && i === value.length);
+    }
+  }
+
+  function setStatus(text, kind) {
+    statusEl.textContent = text;
+    statusEl.className = "status" + (kind ? " " + kind : "");
+  }
+
+  function setDisabled(state) {
+    buttons.forEach(function (b) { b.disabled = state; });
+  }
+
+  async function check() {
+    locked = true;
+    setDisabled(true);
+    var link = null;
+    try { link = unlock(value); } catch (e) { link = null; }
+    if (link) {
+      slotsEl.classList.add("ok");
+      setStatus("Correct code.", "ok");
+      render();
+      setTimeout(function () {
+        lockEl.hidden = true;
+        reveal.textContent = link;
+        reveal.hidden = false;
+      }, 600);
+    } else {
+      slotsEl.classList.add("error");
+      setStatus("Wrong code. Try again.", "error");
+      setTimeout(function () {
+        slotsEl.classList.remove("error");
+        value = "";
+        locked = false;
+        setDisabled(false);
+        setStatus("0 of 4 digits entered");
+        render();
+      }, 900);
+      render();
+    }
+  }
+
+  function press(d) {
+    if (locked || value.length >= LEN) return;
+    value += d;
+    setStatus(value.length + " of 4 digits entered");
+    render();
+    if (value.length === LEN) setTimeout(check, 180);
+  }
+
+  function back() {
+    if (locked) return;
+    value = value.slice(0, -1);
+    setStatus(value.length + " of 4 digits entered");
+    render();
+  }
+
+  function clearAll() {
+    if (locked) return;
+    value = "";
+    setStatus("0 of 4 digits entered");
+    render();
+  }
+
+  document.getElementById("pad").addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (!b) return;
+    if (b.dataset.key !== undefined) press(b.dataset.key);
+    else if (b.dataset.action === "back") back();
+    else if (b.dataset.action === "clear") clearAll();
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (/^[0-9]$/.test(e.key)) { press(e.key); }
+    else if (e.key === "Backspace") { back(); }
+    else if (e.key === "Escape") { clearAll(); }
+  });
+
+  render();
+})();
+</script>
+
+</body></html>
